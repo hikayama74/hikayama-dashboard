@@ -31,6 +31,10 @@ function fileToImage(file) {
 
 const MAX_IMAGES = 5
 
+// 項目ごとの安定キー採番（解析/再解析のたびに新IDを振り、Reactのリコンサイルを確実にする）
+let _seq = 0
+const nextId = () => `it${_seq++}`
+
 // 「雑に投げてAIが整形する」雑入力モーダル（テキスト＋画像/スクショ）。
 // 解析 → 確認（チェックで選別） → 一括登録。
 function QuickInputModal({ onClose }) {
@@ -47,6 +51,8 @@ function QuickInputModal({ onClose }) {
   // 修正ループ用
   const [feedback, setFeedback] = useState('')
   const [refining, setRefining] = useState(false)
+  // applyResult のたびに増やし、確認領域を強制再マウントして確実に再描画する
+  const [applyCount, setApplyCount] = useState(0)
 
   const addFiles = async (fileList) => {
     const imageFiles = Array.from(fileList).filter((f) =>
@@ -98,18 +104,26 @@ function QuickInputModal({ onClose }) {
     const merge = (arr, prevArr) =>
       arr.map((it, i) => ({
         ...it,
+        _id: nextId(), // 毎回新しいキー → React が確実に新しい行として描画
         _checked: prevArr ? (prevArr[i]?._checked ?? true) : true,
       }))
-    setItems({
+    const next = {
       tasks: merge(result.tasks, prev?.tasks),
       events: merge(result.events, prev?.events),
       memos: merge(result.memos, prev?.memos),
-    })
+    }
+    console.log(
+      '[QuickInput] applyResult → setItems events.startAt:',
+      next.events.map((e) => e.startAt),
+    )
+    setItems(next)
+    setApplyCount((c) => c + 1)
   }
 
   // _checked を除いた現在の結果を取り出す（再解析でAIに渡す用）
   const stripChecked = () => {
-    const strip = (arr) => arr.map(({ _checked, ...rest }) => rest) // eslint-disable-line no-unused-vars
+    // _checked と _id（UI内部用）は除いてAIに渡す
+    const strip = (arr) => arr.map(({ _checked, _id, ...rest }) => rest) // eslint-disable-line no-unused-vars
     return {
       tasks: strip(items.tasks),
       events: strip(items.events),
@@ -204,6 +218,14 @@ function QuickInputModal({ onClose }) {
     }
   }
 
+  // 描画時に items の実値を出力（state が描画へ反映されているか確認用）
+  if (phase === 'review') {
+    console.log(
+      '[QuickInput] render(review) events.startAt:',
+      items.events.map((e) => e.startAt),
+    )
+  }
+
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -295,7 +317,7 @@ function QuickInputModal({ onClose }) {
             <p style={styles.hint}>
               登録する項目にチェックを入れてください。
             </p>
-            <div style={styles.reviewArea}>
+            <div style={styles.reviewArea} key={`rev-${applyCount}`}>
               {totalChecked === 0 &&
                 items.tasks.length === 0 &&
                 items.events.length === 0 &&
@@ -307,7 +329,7 @@ function QuickInputModal({ onClose }) {
                 <Section title="タスク">
                   {items.tasks.map((t, i) => (
                     <Row
-                      key={`t${i}`}
+                      key={t._id ?? `t${i}`}
                       checked={t._checked}
                       onToggle={() => toggle('tasks', i)}
                     >
@@ -328,7 +350,7 @@ function QuickInputModal({ onClose }) {
                 <Section title="予定">
                   {items.events.map((e, i) => (
                     <Row
-                      key={`e${i}`}
+                      key={e._id ?? `e${i}`}
                       checked={e._checked}
                       onToggle={() => toggle('events', i)}
                     >
@@ -350,7 +372,7 @@ function QuickInputModal({ onClose }) {
                 <Section title="メモ">
                   {items.memos.map((m, i) => (
                     <Row
-                      key={`m${i}`}
+                      key={m._id ?? `m${i}`}
                       checked={m._checked}
                       onToggle={() => toggle('memos', i)}
                     >
