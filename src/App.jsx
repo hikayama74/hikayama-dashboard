@@ -1,16 +1,19 @@
+import { useState } from 'react'
 import { AuthProvider } from './lib/AuthContext'
 import RequireAuth from './components/RequireAuth'
 import Header from './components/Header'
 import TaskPanel from './components/tasks/TaskPanel'
 import EventPanel from './components/events/EventPanel'
 import MemoPanel from './components/memos/MemoPanel'
+import QuickInputModal from './components/quickinput/QuickInputModal'
 
-// 認証後のメイン画面。CLAUDE.md §4 の3ペイン構成を見据えたグリッド。
-// 現状はタスクペインのみ。予定・メモは後続ステップで追加。
+// 認証後のメイン画面。CLAUDE.md §4 の3ペイン構成。
 function Dashboard() {
+  const [quickOpen, setQuickOpen] = useState(false)
+
   return (
     <div>
-      <Header />
+      <Header onQuickInput={() => setQuickOpen(true)} />
       <main style={styles.main}>
         <div style={styles.grid}>
           <div style={styles.pane}>
@@ -24,6 +27,7 @@ function Dashboard() {
           </div>
         </div>
       </main>
+      {quickOpen && <QuickInputModal onClose={() => setQuickOpen(false)} />}
     </div>
   )
 }
