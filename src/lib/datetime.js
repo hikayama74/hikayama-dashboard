@@ -152,3 +152,9 @@ export function dateKey(date) {
   const pad = (n) => String(n).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
+
+// 日時の表示（例: "6/3 15:00"）。メモの作成日時など。
+export function formatDateTime(date) {
+  if (!date) return ''
+  return `${date.getMonth() + 1}/${date.getDate()} ${formatTime(date)}`
+}
