@@ -33,6 +33,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Secrets がビルドジョブに届いているか検証（値は出さず長さのみ）。
+      # 空ならキー無しでデプロイされるのを防ぐため明示的に失敗させる。
+      - name: Verify required secrets
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+        run: |
+          echo "FIREBASE_API_KEY length: ${#VITE_FIREBASE_API_KEY}"
+          echo "GEMINI_API_KEY length:   ${#VITE_GEMINI_API_KEY}"
+          if [ -z "$VITE_GEMINI_API_KEY" ]; then
+            echo "::error::VITE_GEMINI_API_KEY が空です。Settings > Secrets and variables > Actions の【Repository secrets】（Variables や Environment secrets ではない）に、名前を完全一致で登録してください。"
+            exit 1
+          fi
+
       - name: Build
         # Firebase 設定は GitHub Secrets から環境変数として注入する
         env:
