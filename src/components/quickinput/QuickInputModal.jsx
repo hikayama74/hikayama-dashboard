@@ -15,11 +15,29 @@ function toDate(iso) {
   return isNaN(d.getTime()) ? null : d
 }
 
-// 「雑に投げてAIが整形する」雑入力モーダル（テキスト）。
+// File → { mimeType, data(base64・プレフィックスなし), previewUrl, name }
+function fileToImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result // "data:image/png;base64,XXXX"
+      const data = String(dataUrl).split(',')[1] ?? ''
+      resolve({ mimeType: file.type, data, previewUrl: dataUrl, name: file.name })
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+const MAX_IMAGES = 5
+
+// 「雑に投げてAIが整形する」雑入力モーダル（テキスト＋画像/スクショ）。
 // 解析 → 確認（チェックで選別） → 一括登録。
 function QuickInputModal({ onClose }) {
   const { user } = useAuth()
   const [text, setText] = useState('')
+  const [images, setImages] = useState([]) // [{ mimeType, data, previewUrl, name }]
+  const [dragOver, setDragOver] = useState(false)
   const [phase, setPhase] = useState('input') // input | review
   const [parsing, setParsing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -27,14 +45,38 @@ function QuickInputModal({ onClose }) {
   // 解析結果。各項目に _checked を付与して選別する。
   const [items, setItems] = useState({ tasks: [], events: [], memos: [] })
 
+  const addFiles = async (fileList) => {
+    const imageFiles = Array.from(fileList).filter((f) =>
+      f.type.startsWith('image/'),
+    )
+    if (imageFiles.length === 0) return
+    const room = MAX_IMAGES - images.length
+    const converted = await Promise.all(
+      imageFiles.slice(0, room).map(fileToImage),
+    )
+    setImages((prev) => [...prev, ...converted])
+  }
+
+  const removeImage = (idx) =>
+    setImages((prev) => prev.filter((_, i) => i !== idx))
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setDragOver(false)
+    addFiles(e.dataTransfer.files)
+  }
+
   const handleParse = async () => {
-    if (!text.trim()) return
+    if (!text.trim() && images.length === 0) return
     setParsing(true)
     setError(null)
     try {
       // SDK は重いので、解析時に動的importして初期バンドルから切り離す
       const { parseQuickInput } = await import('../../lib/gemini')
-      const result = await parseQuickInput(text.trim())
+      const result = await parseQuickInput(
+        text.trim(),
+        images.map((img) => ({ mimeType: img.mimeType, data: img.data })),
+      )
       setItems({
         tasks: result.tasks.map((t) => ({ ...t, _checked: true })),
         events: result.events.map((e) => ({ ...e, _checked: true })),
@@ -125,7 +167,7 @@ function QuickInputModal({ onClose }) {
         {phase === 'input' && (
           <>
             <p style={styles.hint}>
-              予定・タスク・メモを自由に書いてください。AIが整形します。
+              予定・タスク・メモを自由に書く、または画像・スクショを添付してください。AIが整形します。
               <br />
               例: 「来週火曜15時にくみこさんとMTG、議事録作成もタスクで」
             </p>
@@ -133,9 +175,56 @@ function QuickInputModal({ onClose }) {
               style={styles.textarea}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="ここに雑に入力…"
+              placeholder="ここに雑に入力…（画像だけでもOK）"
               autoFocus
             />
+
+            {/* 画像アップロード（ドラッグ&ドロップ＋ファイル選択） */}
+            <label
+              style={{
+                ...styles.dropzone,
+                ...(dragOver ? styles.dropzoneActive : {}),
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragOver(true)
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  addFiles(e.target.files)
+                  e.target.value = '' // 同じファイルを再選択できるように
+                }}
+                disabled={images.length >= MAX_IMAGES}
+              />
+              📷 画像・スクショをドロップ、またはクリックして選択
+              {images.length > 0 && `（${images.length}/${MAX_IMAGES}）`}
+            </label>
+
+            {images.length > 0 && (
+              <div style={styles.thumbs}>
+                {images.map((img, i) => (
+                  <div key={i} style={styles.thumbWrap}>
+                    <img src={img.previewUrl} alt={img.name} style={styles.thumb} />
+                    <button
+                      type="button"
+                      style={styles.thumbRemove}
+                      onClick={() => removeImage(i)}
+                      aria-label="削除"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {error && <p style={styles.error}>{error}</p>}
             <div style={styles.actions}>
               <button
@@ -148,7 +237,7 @@ function QuickInputModal({ onClose }) {
               <button
                 style={styles.primary}
                 onClick={handleParse}
-                disabled={parsing || !text.trim()}
+                disabled={parsing || (!text.trim() && images.length === 0)}
               >
                 {parsing ? '解析中…' : '解析する'}
               </button>
@@ -304,6 +393,47 @@ const styles = {
     borderRadius: '10px',
     resize: 'vertical',
     fontFamily: 'inherit',
+  },
+  dropzone: {
+    display: 'block',
+    marginTop: '0.6rem',
+    padding: '0.8rem',
+    border: '1.5px dashed #cbd5e1',
+    borderRadius: '10px',
+    textAlign: 'center',
+    fontSize: '0.82rem',
+    color: '#64748b',
+    cursor: 'pointer',
+    background: '#f8fafc',
+  },
+  dropzoneActive: { borderColor: '#2563eb', background: '#eff6ff' },
+  thumbs: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0.5rem',
+    marginTop: '0.6rem',
+  },
+  thumbWrap: { position: 'relative' },
+  thumb: {
+    width: 72,
+    height: 72,
+    objectFit: 'cover',
+    borderRadius: '8px',
+    border: '1px solid #e5e9f0',
+  },
+  thumbRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: '50%',
+    border: 'none',
+    background: '#1f2933',
+    color: '#fff',
+    fontSize: '0.8rem',
+    lineHeight: 1,
+    cursor: 'pointer',
   },
   reviewArea: { maxHeight: '50vh', overflowY: 'auto', marginBottom: '0.5rem' },
   section: { marginBottom: '1rem' },
