@@ -6,14 +6,7 @@ import { createMemo } from '../../lib/memos'
 import { statusLabel } from '../../lib/tasks'
 import { eventTypeMeta } from '../../lib/events'
 import { memoCategoryMeta } from '../../lib/memos'
-import { formatIsoLocal } from '../../lib/datetime'
-
-// ISO文字列 → Date | null
-function toDate(iso) {
-  if (!iso) return null
-  const d = new Date(iso)
-  return isNaN(d.getTime()) ? null : d
-}
+import { formatIsoLocal, isoLocalToDate } from '../../lib/datetime'
 
 // File → { mimeType, data(base64・プレフィックスなし), previewUrl, name }
 function fileToImage(file) {
@@ -179,7 +172,7 @@ function QuickInputModal({ onClose }) {
           createTask(user.uid, {
             title: t.title,
             status: t.status ?? 'todo',
-            deadline: toDate(t.deadline),
+            deadline: isoLocalToDate(t.deadline),
             assignee: t.assignee ?? '',
             notes: t.notes ?? '',
             tags: t.tags ?? [],
@@ -192,8 +185,8 @@ function QuickInputModal({ onClose }) {
           createEvent(user.uid, {
             title: e.title,
             type: e.type ?? 'work',
-            startAt: toDate(e.startAt),
-            endAt: toDate(e.endAt),
+            startAt: isoLocalToDate(e.startAt),
+            endAt: isoLocalToDate(e.endAt),
             allDay: e.allDay ?? false,
             location: e.location ?? '',
             notes: e.notes ?? '',

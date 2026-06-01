@@ -159,6 +159,25 @@ export function formatDateTime(date) {
   return `${date.getMonth() + 1}/${date.getDate()} ${formatTime(date)}`
 }
 
+// ISO風文字列（"2026-06-03T13:00:00" などTZなし）を「壁時計そのまま」のローカル Date に変換する。
+// new Date(文字列) はブラウザによってTZなしISOをUTC扱いし±時差ぶんズレるため、
+// 文字列から年月日時分を取り出して new Date(y, m-1, d, h, min)（常にローカル）で組み立てる。
+// 保存（Firestore Timestamp）時にこれを使うと、表示(formatIsoLocal)と一致した壁時計で保存される。
+export function isoLocalToDate(iso) {
+  if (!iso) return null
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/)
+  if (m) {
+    const y = Number(m[1])
+    const mo = Number(m[2])
+    const da = Number(m[3])
+    const hh = m[4] != null ? Number(m[4]) : 0
+    const mm = m[5] != null ? Number(m[5]) : 0
+    return new Date(y, mo - 1, da, hh, mm, 0, 0)
+  }
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? null : d
+}
+
 // ISO風文字列（"2026-06-03T13:00:00" などTZなし）から壁時計の値をそのまま取り出して
 // "M/D HH:mm" で表示する。Date を経由しないためタイムゾーン変換の影響を受けない。
 // （Gemini はローカル壁時計の予定時刻をTZなしISOで返すため、表示もその値をそのまま使う）
