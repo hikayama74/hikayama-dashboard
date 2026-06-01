@@ -6,7 +6,7 @@ import { createMemo } from '../../lib/memos'
 import { statusLabel } from '../../lib/tasks'
 import { eventTypeMeta } from '../../lib/events'
 import { memoCategoryMeta } from '../../lib/memos'
-import { formatDeadline, formatDateTime } from '../../lib/datetime'
+import { formatIsoLocal } from '../../lib/datetime'
 
 // ISO文字列 → Date | null
 function toDate(iso) {
@@ -336,8 +336,7 @@ function QuickInputModal({ onClose }) {
                       <strong>{t.title}</strong>
                       <span style={styles.sub}>
                         {statusLabel(t.status ?? 'todo')}
-                        {toDate(t.deadline) &&
-                          ` ・🕒 ${formatDeadline(toDate(t.deadline))}`}
+                        {t.deadline && ` ・🕒 ${formatIsoLocal(t.deadline)}`}
                         {t.assignee && ` ・👤 ${t.assignee}`}
                         {t.tags?.length ? ` ・${t.tags.map((x) => `#${x}`).join(' ')}` : ''}
                       </span>
@@ -359,8 +358,7 @@ function QuickInputModal({ onClose }) {
                         {eventTypeMeta(e.type).label}
                         {e.allDay
                           ? ' ・終日'
-                          : toDate(e.startAt) &&
-                            ` ・${formatDateTime(toDate(e.startAt))}`}
+                          : e.startAt && ` ・${formatIsoLocal(e.startAt)}`}
                         {e.location && ` ・📍 ${e.location}`}
                       </span>
                     </Row>

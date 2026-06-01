@@ -159,6 +159,21 @@ export function formatDateTime(date) {
   return `${date.getMonth() + 1}/${date.getDate()} ${formatTime(date)}`
 }
 
+// ISO風文字列（"2026-06-03T13:00:00" などTZなし）から壁時計の値をそのまま取り出して
+// "M/D HH:mm" で表示する。Date を経由しないためタイムゾーン変換の影響を受けない。
+// （Gemini はローカル壁時計の予定時刻をTZなしISOで返すため、表示もその値をそのまま使う）
+export function formatIsoLocal(iso) {
+  if (!iso) return ''
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+  if (m) {
+    const [, , mo, da, hh, mm] = m
+    return `${Number(mo)}/${Number(da)} ${hh}:${mm}`
+  }
+  // フォールバック（想定外フォーマット時）
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? '' : formatDateTime(d)
+}
+
 // 短縮日付（例: "6/10"）
 export function formatDateShort(date) {
   if (!date) return ''

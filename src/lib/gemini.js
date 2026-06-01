@@ -8,7 +8,8 @@
 //    将来は Cloud Functions 経由に移して隠す想定。
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const MODEL = 'gemini-2.5-flash-lite'
+// 既定は gemini-2.5-flash-lite。VITE_GEMINI_MODEL で上書き可能（無料枠の日次上限を試行錯誤する用）。
+const MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash-lite'
 
 let _genAI = null
 function getGenAI() {
@@ -97,7 +98,7 @@ export function describeError(e) {
   const s = e?.status ?? 0
   const msg = String(e?.message ?? '')
   if (s === 429 || /429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
-    return 'Gemini無料枠のレート上限に達した可能性があります（1分あたり/1日あたりの上限）。1分ほど待って再度お試しください。'
+    return 'Gemini無料枠の上限に達しました。新しめのモデルは「1日あたり」の上限が低め（モデルごと）のため、その日の残量が尽きると翌日まで回復しません。対処: ①数分〜翌日まで待つ ②.env の VITE_GEMINI_MODEL で別モデルに切替 ③Google Cloud で課金を有効化すると上限が大幅に上がります。'
   }
   if (s === 503 || /503|overloaded|high demand|UNAVAILABLE/i.test(msg)) {
     return 'Gemini側が一時的に混雑しています。少し待って再試行してください。'
