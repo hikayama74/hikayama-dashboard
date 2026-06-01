@@ -1,11 +1,14 @@
 // Gemini API 連携（ブラウザ実行）
 // 雑入力テキスト → タスク/予定/メモの構造化データ変換、および「AIに聞く」応答。
-// 無料枠あり・高速の gemini-2.5-flash を使用（gemini-1.5-flash は提供終了のため後継を採用）。
+// gemini-2.5-flash-lite を使用。
+// ※ gemini-2.5-flash は無料枠が 1日20リクエストと極端に低く 429 になりやすいため、
+//    無料枠の1日上限が大きい lite に変更（Vision・JSON対応・高速、思考オーバーヘッドなし）。
+//    gemini-1.5-flash は提供終了。
 // ⚠️ APIキーはフロントに置くため公開サイトに露出する（当面の運用方針）。
 //    将来は Cloud Functions 経由に移して隠す想定。
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const MODEL = 'gemini-2.5-flash'
+const MODEL = 'gemini-2.5-flash-lite'
 
 let _genAI = null
 function getGenAI() {
@@ -114,11 +117,7 @@ export async function parseQuickInput(text, images = [], nowISO) {
   const model = getGenAI().getGenerativeModel({
     model: MODEL,
     systemInstruction: PARSE_SYSTEM,
-    // thinkingBudget:0 で思考をオフ（高速化・無料枠節約）
-    generationConfig: {
-      responseMimeType: 'application/json',
-      thinkingConfig: { thinkingBudget: 0 },
-    },
+    generationConfig: { responseMimeType: 'application/json' },
   })
 
   const promptText = `現在日時: ${now}\n\n入力:\n${text || '(テキストなし。画像から抽出してください)'}`
@@ -149,10 +148,7 @@ export async function refineQuickInput(
   const model = getGenAI().getGenerativeModel({
     model: MODEL,
     systemInstruction: PARSE_SYSTEM,
-    generationConfig: {
-      responseMimeType: 'application/json',
-      thinkingConfig: { thinkingBudget: 0 },
-    },
+    generationConfig: { responseMimeType: 'application/json' },
   })
 
   const promptText = `現在日時: ${now}
@@ -220,7 +216,6 @@ export async function askAI(question, { tasks, events, memos }, nowISO) {
   const model = getGenAI().getGenerativeModel({
     model: MODEL,
     systemInstruction: ASK_SYSTEM,
-    generationConfig: { thinkingConfig: { thinkingBudget: 0 } },
   })
 
   const ctx = buildContext(tasks, events, memos)
