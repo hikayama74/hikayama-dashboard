@@ -129,21 +129,21 @@ export async function parseQuickInput(text, images = [], nowISO) {
     })),
   ]
 
+  console.log('[gemini.parse] 送信:', { model: MODEL, text, imageCount: images.length })
   const result = await generateWithRetry(model, parts)
-  const parsed = extractJson(result.response.text())
+  const raw = result.response.text()
+  console.log('[gemini.parse] 受信(raw):', raw)
+  const parsed = extractJson(raw)
   const { tasks = [], events = [], memos = [] } = parsed
   return { tasks, events, memos }
 }
 
 // 直前の抽出結果を、ユーザーの修正指示（「ここは違う」等）に従って再解析する。
 // current: { tasks, events, memos }（_checked等の余分なキーは含めない）, feedback: 修正指示の文章
-export async function refineQuickInput(
-  text,
-  images = [],
-  current,
-  feedback,
-  nowISO,
-) {
+// ※ 修正は「抽出済みJSON＋指示」だけで行い、画像は再送しない。
+//    画像を再送すると、flash-lite が画像内の元の値（例: 22:00）をユーザー指示（13:00）より
+//    優先して上書き戻してしまうため。画像由来の情報は current にすでに反映されている。
+export async function refineQuickInput(text, current, feedback, nowISO) {
   const now = nowISO ?? new Date().toISOString()
   const model = getGenAI().getGenerativeModel({
     model: MODEL,
@@ -153,7 +153,12 @@ export async function refineQuickInput(
 
   const promptText = `現在日時: ${now}
 
-これは再解析（修正）です。下記「現在の抽出結果」を、ユーザーの修正指示に従って直し、同じJSON形式で**全件**返してください。修正指示に関係ない項目はそのまま残してください。元の入力・画像も参考にしてください。
+これは再解析（修正）です。下記「現在の抽出結果」を、ユーザーの修正指示に従って直し、同じJSON形式で**全件**返してください。
+
+重要なルール:
+- **ユーザーの修正指示は最優先**。元の抽出値と矛盾する場合は、必ず修正指示の内容に書き換える（例: 元が22:00でも「13時」と指示があれば 13:00 にする）。
+- 修正指示に関係ない項目は値を変えずそのまま残す。
+- 日時は ISO8601 で返す。
 
 元の入力テキスト:
 ${text || '(テキストなし)'}
@@ -164,15 +169,22 @@ ${JSON.stringify(current)}
 修正指示:
 ${feedback}`
 
-  const parts = [
-    { text: promptText },
-    ...images.map((img) => ({
-      inlineData: { mimeType: img.mimeType, data: img.data },
-    })),
-  ]
+  console.log('[gemini.refine] 送信:', {
+    model: MODEL,
+    feedback,
+    現在の件数: {
+      tasks: current?.tasks?.length ?? 0,
+      events: current?.events?.length ?? 0,
+      memos: current?.memos?.length ?? 0,
+    },
+    現在のevents: current?.events,
+  })
 
-  const result = await generateWithRetry(model, parts)
-  const parsed = extractJson(result.response.text())
+  const result = await generateWithRetry(model, promptText)
+  const raw = result.response.text()
+  console.log('[gemini.refine] 受信(raw):', raw)
+  const parsed = extractJson(raw)
+  console.log('[gemini.refine] パース結果:', parsed)
   const { tasks = [], events = [], memos = [] } = parsed
   return { tasks, events, memos }
 }

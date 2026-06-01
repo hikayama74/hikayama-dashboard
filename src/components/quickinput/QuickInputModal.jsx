@@ -125,12 +125,10 @@ function QuickInputModal({ onClose }) {
     try {
       const { refineQuickInput } = await import('../../lib/gemini')
       const prev = items // 現在のチェック状態を引き継ぐ
-      const result = await refineQuickInput(
-        text.trim(),
-        images.map((img) => ({ mimeType: img.mimeType, data: img.data })),
-        stripChecked(),
-        feedback.trim(),
-      )
+      const current = stripChecked()
+      console.log('[QuickInput] 修正リクエスト:', { feedback: feedback.trim(), current })
+      const result = await refineQuickInput(text.trim(), current, feedback.trim())
+      console.log('[QuickInput] 修正結果を反映:', result)
       applyResult(result, prev)
       setFeedback('')
     } catch (e) {
