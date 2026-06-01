@@ -44,6 +44,9 @@ function QuickInputModal({ onClose }) {
   const [error, setError] = useState(null)
   // 解析結果。各項目に _checked を付与して選別する。
   const [items, setItems] = useState({ tasks: [], events: [], memos: [] })
+  // 修正ループ用
+  const [feedback, setFeedback] = useState('')
+  const [refining, setRefining] = useState(false)
 
   const addFiles = async (fileList) => {
     const imageFiles = Array.from(fileList).filter((f) =>
@@ -77,11 +80,7 @@ function QuickInputModal({ onClose }) {
         text.trim(),
         images.map((img) => ({ mimeType: img.mimeType, data: img.data })),
       )
-      setItems({
-        tasks: result.tasks.map((t) => ({ ...t, _checked: true })),
-        events: result.events.map((e) => ({ ...e, _checked: true })),
-        memos: result.memos.map((m) => ({ ...m, _checked: true })),
-      })
+      applyResult(result)
       setPhase('review')
     } catch (e) {
       console.error('[QuickInput] 解析失敗', e)
@@ -92,6 +91,52 @@ function QuickInputModal({ onClose }) {
       )
     } finally {
       setParsing(false)
+    }
+  }
+
+  // 解析/再解析の結果を選別用 state に反映（全件チェック済みにする）
+  const applyResult = (result) => {
+    setItems({
+      tasks: result.tasks.map((t) => ({ ...t, _checked: true })),
+      events: result.events.map((e) => ({ ...e, _checked: true })),
+      memos: result.memos.map((m) => ({ ...m, _checked: true })),
+    })
+  }
+
+  // _checked を除いた現在の結果を取り出す（再解析でAIに渡す用）
+  const stripChecked = () => {
+    const strip = (arr) => arr.map(({ _checked, ...rest }) => rest) // eslint-disable-line no-unused-vars
+    return {
+      tasks: strip(items.tasks),
+      events: strip(items.events),
+      memos: strip(items.memos),
+    }
+  }
+
+  // 「ここは違う」の修正指示でAIに再解析させる
+  const handleRefine = async () => {
+    if (!feedback.trim()) return
+    setRefining(true)
+    setError(null)
+    try {
+      const { refineQuickInput } = await import('../../lib/gemini')
+      const result = await refineQuickInput(
+        text.trim(),
+        images.map((img) => ({ mimeType: img.mimeType, data: img.data })),
+        stripChecked(),
+        feedback.trim(),
+      )
+      applyResult(result)
+      setFeedback('')
+    } catch (e) {
+      console.error('[QuickInput] 再解析失敗', e)
+      setError(
+        e?.message?.includes('VITE_GEMINI_API_KEY')
+          ? 'Gemini APIキーが未設定です（.env を確認してください）。'
+          : '再解析に失敗しました。時間をおいて再度お試しください。',
+      )
+    } finally {
+      setRefining(false)
     }
   }
 
@@ -167,15 +212,15 @@ function QuickInputModal({ onClose }) {
         {phase === 'input' && (
           <>
             <p style={styles.hint}>
-              予定・タスク・メモを自由に書く、または画像・スクショを添付してください。AIが整形します。
-              <br />
-              例: 「来週火曜15時にくみこさんとMTG、議事録作成もタスクで」
+              予定・タスク・メモを自由に書く、または画像・スクショを添付してください。
+              <strong>画像と詳細テキストは一緒に送れます</strong>（例: シフト表の画像＋「来週分です」）。
+              入力後に「解析する」を押すとAIが整形します。
             </p>
             <textarea
               style={styles.textarea}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="ここに雑に入力…（画像だけでもOK）"
+              placeholder="ここに詳細・補足を入力…（画像だけでもOK / 画像＋テキスト併用OK）"
               autoFocus
             />
 
@@ -319,19 +364,49 @@ function QuickInputModal({ onClose }) {
               )}
             </div>
 
+            {/* 「ここは違う」修正ループ */}
+            <div style={styles.refineBox}>
+              <p style={styles.refineLabel}>
+                結果が違う場合はAIに修正を指示できます
+              </p>
+              <div style={styles.refineRow}>
+                <input
+                  style={styles.refineInput}
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing)
+                      handleRefine()
+                  }}
+                  placeholder="例: MTGは火曜じゃなく水曜 / 担当は清水さん / 歯医者は不要"
+                  disabled={refining}
+                />
+                <button
+                  style={styles.refineBtn}
+                  onClick={handleRefine}
+                  disabled={refining || !feedback.trim()}
+                >
+                  {refining ? '修正中…' : 'AIで修正'}
+                </button>
+              </div>
+              <p style={styles.refineHint}>
+                ※ 細かい調整は、登録後に各カードの「編集」からも行えます。
+              </p>
+            </div>
+
             {error && <p style={styles.error}>{error}</p>}
             <div style={styles.actions}>
               <button
                 style={styles.cancel}
                 onClick={() => setPhase('input')}
-                disabled={saving}
+                disabled={saving || refining}
               >
                 戻る
               </button>
               <button
                 style={styles.primary}
                 onClick={handleRegister}
-                disabled={saving || totalChecked === 0}
+                disabled={saving || refining || totalChecked === 0}
               >
                 {saving ? '登録中…' : `登録する（${totalChecked}件）`}
               </button>
@@ -435,7 +510,34 @@ const styles = {
     lineHeight: 1,
     cursor: 'pointer',
   },
-  reviewArea: { maxHeight: '50vh', overflowY: 'auto', marginBottom: '0.5rem' },
+  reviewArea: { maxHeight: '42vh', overflowY: 'auto', marginBottom: '0.5rem' },
+  refineBox: {
+    background: '#f8fafc',
+    border: '1px solid #e5e9f0',
+    borderRadius: '10px',
+    padding: '0.6rem 0.7rem',
+    margin: '0.25rem 0 0.5rem',
+  },
+  refineLabel: { margin: '0 0 0.4rem', fontSize: '0.8rem', color: '#475569', fontWeight: 600 },
+  refineRow: { display: 'flex', gap: '0.5rem' },
+  refineInput: {
+    flex: 1,
+    padding: '0.45rem 0.6rem',
+    fontSize: '0.88rem',
+    border: '1px solid #cbd5e1',
+    borderRadius: '8px',
+  },
+  refineBtn: {
+    padding: '0.45rem 1rem',
+    background: '#0ea5e9',
+    border: 'none',
+    borderRadius: '8px',
+    color: '#fff',
+    fontWeight: 600,
+    fontSize: '0.85rem',
+    whiteSpace: 'nowrap',
+  },
+  refineHint: { margin: '0.4rem 0 0', fontSize: '0.72rem', color: '#94a3b8' },
   section: { marginBottom: '1rem' },
   sectionTitle: {
     margin: '0 0 0.4rem',

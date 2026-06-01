@@ -114,6 +114,51 @@ export async function parseQuickInput(text, images = [], nowISO) {
   return { tasks, events, memos }
 }
 
+// 直前の抽出結果を、ユーザーの修正指示（「ここは違う」等）に従って再解析する。
+// current: { tasks, events, memos }（_checked等の余分なキーは含めない）, feedback: 修正指示の文章
+export async function refineQuickInput(
+  text,
+  images = [],
+  current,
+  feedback,
+  nowISO,
+) {
+  const now = nowISO ?? new Date().toISOString()
+  const model = getGenAI().getGenerativeModel({
+    model: MODEL,
+    systemInstruction: PARSE_SYSTEM,
+    generationConfig: {
+      responseMimeType: 'application/json',
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  })
+
+  const promptText = `現在日時: ${now}
+
+これは再解析（修正）です。下記「現在の抽出結果」を、ユーザーの修正指示に従って直し、同じJSON形式で**全件**返してください。修正指示に関係ない項目はそのまま残してください。元の入力・画像も参考にしてください。
+
+元の入力テキスト:
+${text || '(テキストなし)'}
+
+現在の抽出結果(JSON):
+${JSON.stringify(current)}
+
+修正指示:
+${feedback}`
+
+  const parts = [
+    { text: promptText },
+    ...images.map((img) => ({
+      inlineData: { mimeType: img.mimeType, data: img.data },
+    })),
+  ]
+
+  const result = await generateWithRetry(model, parts)
+  const parsed = extractJson(result.response.text())
+  const { tasks = [], events = [], memos = [] } = parsed
+  return { tasks, events, memos }
+}
+
 // --- 「AIに聞く」 -----------------------------------------------------------
 
 const ASK_SYSTEM = `あなたはヒカヤマさん（merone社セールス部アクセラチームリーダー）のパーソナルアシスタントです。
