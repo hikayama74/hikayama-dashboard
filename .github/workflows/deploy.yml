@@ -57,7 +57,12 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
-        run: npm run build
+        run: |
+          npm run build
+          # 診断: ビルドステップが受け取ったキー長と、バンドルにキーが焼き込まれたかを配信ファイルに記録（値は出さない）
+          echo "build_step_gemini_len=${#VITE_GEMINI_API_KEY}" > dist/diag.txt
+          echo "gemini_chunk_has_key=$(grep -l 'AIza' dist/assets/gemini-*.js >/dev/null 2>&1 && echo yes || echo no)" >> dist/diag.txt
+          cat dist/diag.txt
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
