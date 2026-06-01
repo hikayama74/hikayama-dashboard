@@ -11,6 +11,7 @@ import {
   endOfMonth,
   formatDateHeader,
   dateKey,
+  eachDayInRange,
 } from '../../lib/datetime'
 import EventItem from './EventItem'
 import EventForm from './EventForm'
@@ -46,31 +47,41 @@ function EventPanel() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
 
-  // 範囲内 & 種別フィルタを適用し、日付ごとにグルーピング
+  // 範囲内 & 種別フィルタを適用し、日付ごとにグルーピング。
+  // 複数日にまたがる予定は、範囲内の各日に表示する。
   const groups = useMemo(() => {
     const now = new Date()
     const bounds = rangeBounds(range, now)
+    const map = new Map() // dateKey -> events[]
 
-    const inRange = events.filter((ev) => {
+    for (const ev of events) {
       const start = tsToDate(ev.startAt)
-      if (!start) return false
-      if (bounds && (start < bounds[0] || start > bounds[1])) return false
-      if (typeFilter !== 'all' && ev.type !== typeFilter) return false
-      return true
-    })
+      if (!start) continue
+      if (typeFilter !== 'all' && ev.type !== typeFilter) continue
+      const end = tsToDate(ev.endAt) ?? start
 
-    // 日付キーごとにまとめる（events は startAt 昇順で購読済み）
-    const map = new Map()
-    for (const ev of inRange) {
-      const key = dateKey(tsToDate(ev.startAt))
-      if (!map.has(key)) map.set(key, [])
-      map.get(key).push(ev)
+      // この予定が占める日範囲（startの日〜endの日）
+      let spanFrom = startOfDay(start)
+      let spanTo = startOfDay(end)
+
+      // 表示範囲でクリップ（'all' は bounds=null）
+      if (bounds) {
+        if (spanTo < bounds[0] || spanFrom > bounds[1]) continue
+        if (spanFrom < startOfDay(bounds[0])) spanFrom = startOfDay(bounds[0])
+        if (spanTo > startOfDay(bounds[1])) spanTo = startOfDay(bounds[1])
+      }
+
+      for (const day of eachDayInRange(spanFrom, spanTo)) {
+        const key = dateKey(day)
+        if (!map.has(key)) map.set(key, { date: day, items: [] })
+        map.get(key).items.push(ev)
+      }
     }
-    return Array.from(map.entries()).map(([key, items]) => ({
-      key,
-      date: tsToDate(items[0].startAt),
-      items,
-    }))
+
+    // 日付昇順に並べて返す
+    return Array.from(map.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, { date, items }]) => ({ key, date, items }))
   }, [events, range, typeFilter])
 
   const openNew = () => {

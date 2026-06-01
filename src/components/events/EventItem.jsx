@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { useAuth } from '../../lib/AuthContext'
 import { deleteEvent, eventTypeMeta } from '../../lib/events'
-import { tsToDate, formatTimeRange } from '../../lib/datetime'
+import {
+  tsToDate,
+  formatTimeRange,
+  formatDateShort,
+  dateKey,
+} from '../../lib/datetime'
 
 // 1件の予定表示行（時刻・種別カラーバー・編集・削除）。
 function EventItem({ event, onEdit }) {
@@ -10,6 +15,18 @@ function EventItem({ event, onEdit }) {
   const meta = eventTypeMeta(event.type)
   const start = tsToDate(event.startAt)
   const end = tsToDate(event.endAt)
+  // 複数日にまたがる予定か（開始日と終了日が異なる）
+  const multiDay = start && end && dateKey(start) !== dateKey(end)
+
+  // 時刻/日付表示の文言
+  let timeText
+  if (event.allDay) {
+    timeText = multiDay
+      ? `終日 · ${formatDateShort(start)}–${formatDateShort(end)}`
+      : '終日'
+  } else {
+    timeText = formatTimeRange(start, end)
+  }
 
   const handleDelete = async () => {
     if (!window.confirm(`「${event.title}」を削除しますか？`)) return
@@ -27,9 +44,7 @@ function EventItem({ event, onEdit }) {
       <span style={{ ...styles.bar, background: meta.color }} />
       <div style={styles.body}>
         <div style={styles.topRow}>
-          <span style={styles.time}>
-            {event.allDay ? '終日' : formatTimeRange(start, end)}
-          </span>
+          <span style={styles.time}>{timeText}</span>
           <span style={{ ...styles.typeBadge, color: meta.color }}>
             {meta.label}
           </span>

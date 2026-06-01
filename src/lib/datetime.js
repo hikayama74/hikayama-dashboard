@@ -158,3 +158,25 @@ export function formatDateTime(date) {
   if (!date) return ''
   return `${date.getMonth() + 1}/${date.getDate()} ${formatTime(date)}`
 }
+
+// 短縮日付（例: "6/10"）
+export function formatDateShort(date) {
+  if (!date) return ''
+  return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
+// from〜to（両端含む）の各日の startOfDay 配列を返す。
+// 暴走防止に最大日数を上限とする（既定 366 日）。
+export function eachDayInRange(from, to, maxDays = 366) {
+  const days = []
+  let cur = startOfDay(from)
+  const last = startOfDay(to)
+  let guard = 0
+  while (cur.getTime() <= last.getTime() && guard < maxDays) {
+    days.push(new Date(cur))
+    cur = new Date(cur)
+    cur.setDate(cur.getDate() + 1)
+    guard++
+  }
+  return days
+}

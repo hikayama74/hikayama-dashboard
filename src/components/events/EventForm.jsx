@@ -21,6 +21,7 @@ function defaultStartTime() {
 }
 
 // 予定の新規作成 / 編集フォーム（モーダル, Google カレンダー風）。
+// 終日ON: 開始日〜終了日の範囲指定（複数日可）。終日OFF: 同日内で開始/終了時刻。
 function EventForm({ event, onClose }) {
   const { user } = useAuth()
   const isEdit = Boolean(event)
@@ -33,8 +34,12 @@ function EventForm({ event, onClose }) {
   const [title, setTitle] = useState(event?.title ?? '')
   const [type, setType] = useState(event?.type ?? 'work')
   const [allDay, setAllDay] = useState(event?.allDay ?? false)
-  const [date, setDate] = useState(
+  const [startDate, setStartDate] = useState(
     dateToDateInput(initStart ?? new Date()),
+  )
+  // 終了日は終日予定の範囲指定用。既定は開始日と同じ。
+  const [endDate, setEndDate] = useState(
+    dateToDateInput(initEnd ?? initStart ?? new Date()),
   )
   const [startTime, setStartTime] = useState(initStartTime)
   const [endTime, setEndTime] = useState(
@@ -46,8 +51,15 @@ function EventForm({ event, onClose }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
+  // 開始日を変えたら、終了日が前なら開始日に合わせる
+  const handleStartDateChange = (e) => {
+    const v = e.target.value
+    setStartDate(v)
+    if (endDate < v) setEndDate(v)
+  }
+
   // 開始時刻を変えたら、終了を「開始＋1時間」に追従させる（Google 風）
-  const handleStartChange = (e) => {
+  const handleStartTimeChange = (e) => {
     const v = e.target.value
     setStartTime(v)
     setEndTime(addMinutesToTime(v, 60))
@@ -76,7 +88,7 @@ function EventForm({ event, onClose }) {
       setError('予定名を入力してください。')
       return
     }
-    if (!date) {
+    if (!startDate) {
       setError('日付を選択してください。')
       return
     }
@@ -84,12 +96,18 @@ function EventForm({ event, onClose }) {
     let start
     let end
     if (allDay) {
-      const base = combineDateTime(date, '00:00')
-      start = startOfDay(base)
-      end = endOfDay(base)
+      // 開始日 00:00 〜 終了日 23:59（複数日可）
+      const sd = combineDateTime(startDate, '00:00')
+      const ed = combineDateTime(endDate || startDate, '00:00')
+      if (startOfDay(ed).getTime() < startOfDay(sd).getTime()) {
+        setError('終了日は開始日以降にしてください。')
+        return
+      }
+      start = startOfDay(sd)
+      end = endOfDay(ed)
     } else {
-      start = combineDateTime(date, startTime)
-      end = combineDateTime(date, endTime)
+      start = combineDateTime(startDate, startTime)
+      end = combineDateTime(startDate, endTime)
       if (end.getTime() <= start.getTime()) {
         setError('終了時刻は開始時刻より後にしてください。')
         return
@@ -158,50 +176,77 @@ function EventForm({ event, onClose }) {
               checked={allDay}
               onChange={(e) => setAllDay(e.target.checked)}
             />
-            終日
+            終日（ONで複数日にまたがる予定も登録できます）
           </label>
 
-          <label style={styles.label}>
-            日付 <span style={styles.req}>*</span>
-            <input
-              type="date"
-              style={styles.input}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </label>
-
-          {!allDay && (
+          {allDay ? (
             <div style={styles.row}>
               <label style={{ ...styles.label, flex: 1 }}>
-                開始
-                <select
+                開始日 <span style={styles.req}>*</span>
+                <input
+                  type="date"
                   style={styles.input}
-                  value={startTime}
-                  onChange={handleStartChange}
-                >
-                  {TIME_OPTS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  value={startDate}
+                  onChange={handleStartDateChange}
+                />
               </label>
               <label style={{ ...styles.label, flex: 1 }}>
-                終了
-                <select
+                終了日
+                <input
+                  type="date"
                   style={styles.input}
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                >
-                  {endOptions.map((o) => (
-                    <option key={o.value} value={o.value} disabled={o.disabled}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  value={endDate}
+                  min={startDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
               </label>
             </div>
+          ) : (
+            <>
+              <label style={styles.label}>
+                日付 <span style={styles.req}>*</span>
+                <input
+                  type="date"
+                  style={styles.input}
+                  value={startDate}
+                  onChange={handleStartDateChange}
+                />
+              </label>
+              <div style={styles.row}>
+                <label style={{ ...styles.label, flex: 1 }}>
+                  開始
+                  <select
+                    style={styles.input}
+                    value={startTime}
+                    onChange={handleStartTimeChange}
+                  >
+                    {TIME_OPTS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ ...styles.label, flex: 1 }}>
+                  終了
+                  <select
+                    style={styles.input}
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                  >
+                    {endOptions.map((o) => (
+                      <option
+                        key={o.value}
+                        value={o.value}
+                        disabled={o.disabled}
+                      >
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </>
           )}
 
           <label style={styles.label}>
