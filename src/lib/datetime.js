@@ -42,3 +42,62 @@ export function isOverdue(date) {
   if (!date) return false
   return date.getTime() < Date.now()
 }
+
+// --- 範囲・グルーピング系（予定カレンダー用） ---
+
+export function startOfDay(date) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+export function endOfDay(date) {
+  const d = new Date(date)
+  d.setHours(23, 59, 59, 999)
+  return d
+}
+
+// 週の開始（月曜始まり）
+export function startOfWeek(date) {
+  const d = startOfDay(date)
+  const day = d.getDay() // 0=日
+  const diff = (day + 6) % 7 // 月曜までの戻り日数
+  d.setDate(d.getDate() - diff)
+  return d
+}
+
+export function endOfWeek(date) {
+  const s = startOfWeek(date)
+  const e = new Date(s)
+  e.setDate(s.getDate() + 6)
+  return endOfDay(e)
+}
+
+// 時刻のみ（例: "15:00"）
+export function formatTime(date) {
+  if (!date) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+// 開始〜終了の時刻表示（例: "15:00–16:00" / 終了なしは "15:00"）
+export function formatTimeRange(start, end) {
+  if (!start) return ''
+  return end ? `${formatTime(start)}–${formatTime(end)}` : formatTime(start)
+}
+
+// 日付見出し（例: "6/3(火)"）。今日なら "今日" を前置。
+export function formatDateHeader(date) {
+  if (!date) return ''
+  const m = date.getMonth() + 1
+  const d = date.getDate()
+  const wd = WD[date.getDay()]
+  const today = startOfDay(new Date()).getTime() === startOfDay(date).getTime()
+  return `${today ? '今日 ' : ''}${m}/${d}(${wd})`
+}
+
+// YYYY-MM-DD のキー（日単位グルーピング用）
+export function dateKey(date) {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}

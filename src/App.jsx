@@ -2,6 +2,7 @@ import { AuthProvider } from './lib/AuthContext'
 import RequireAuth from './components/RequireAuth'
 import Header from './components/Header'
 import TaskPanel from './components/tasks/TaskPanel'
+import EventPanel from './components/events/EventPanel'
 
 // 認証後のメイン画面。CLAUDE.md §4 の3ペイン構成を見据えたグリッド。
 // 現状はタスクペインのみ。予定・メモは後続ステップで追加。
@@ -15,7 +16,7 @@ function Dashboard() {
             <TaskPanel />
           </div>
           <div style={styles.pane}>
-            <p style={styles.placeholder}>カレンダービュー（予定）— 実装予定</p>
+            <EventPanel />
           </div>
           <div style={styles.pane}>
             <p style={styles.placeholder}>メモ・状況報告 — 実装予定</p>
