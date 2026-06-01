@@ -1,29 +1,74 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '../../lib/AuthContext'
 import { createEvent, updateEvent, EVENT_TYPES } from '../../lib/events'
 import {
   tsToDate,
-  dateToInputValue,
-  inputValueToDate,
+  dateToDateInput,
+  combineDateTime,
+  timeOptions,
+  addMinutesToTime,
+  formatTime,
+  startOfDay,
+  endOfDay,
 } from '../../lib/datetime'
 
-// 予定の新規作成 / 編集フォーム（モーダル）。
-// event を渡せば編集、null なら新規作成。
+// 新規予定の初期時刻（次のキリのよい時刻）。例: 14:23 → 15:00
+function defaultStartTime() {
+  const now = new Date()
+  const h = now.getMinutes() > 0 ? now.getHours() + 1 : now.getHours()
+  const hh = Math.min(h, 23)
+  return `${String(hh).padStart(2, '0')}:00`
+}
+
+// 予定の新規作成 / 編集フォーム（モーダル, Google カレンダー風）。
 function EventForm({ event, onClose }) {
   const { user } = useAuth()
   const isEdit = Boolean(event)
+  const TIME_OPTS = useMemo(() => timeOptions(15), [])
+
+  const initStart = tsToDate(event?.startAt)
+  const initEnd = tsToDate(event?.endAt)
+  const initStartTime = initStart ? formatTime(initStart) : defaultStartTime()
 
   const [title, setTitle] = useState(event?.title ?? '')
   const [type, setType] = useState(event?.type ?? 'work')
-  const [startAt, setStartAt] = useState(
-    dateToInputValue(tsToDate(event?.startAt)),
+  const [allDay, setAllDay] = useState(event?.allDay ?? false)
+  const [date, setDate] = useState(
+    dateToDateInput(initStart ?? new Date()),
   )
-  const [endAt, setEndAt] = useState(dateToInputValue(tsToDate(event?.endAt)))
+  const [startTime, setStartTime] = useState(initStartTime)
+  const [endTime, setEndTime] = useState(
+    initEnd ? formatTime(initEnd) : addMinutesToTime(initStartTime, 60),
+  )
   const [location, setLocation] = useState(event?.location ?? '')
   const [notes, setNotes] = useState(event?.notes ?? '')
   const [syncToGcal, setSyncToGcal] = useState(event?.syncToGcal ?? false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+
+  // 開始時刻を変えたら、終了を「開始＋1時間」に追従させる（Google 風）
+  const handleStartChange = (e) => {
+    const v = e.target.value
+    setStartTime(v)
+    setEndTime(addMinutesToTime(v, 60))
+  }
+
+  // 終了時刻の選択肢に「開始からの所要時間」を併記
+  const endOptions = useMemo(() => {
+    const [sh, sm] = startTime.split(':').map(Number)
+    const startMin = sh * 60 + sm
+    return TIME_OPTS.map((o) => {
+      const [eh, em] = o.value.split(':').map(Number)
+      const diff = eh * 60 + em - startMin
+      let suffix = ''
+      if (diff > 0) {
+        const h = Math.floor(diff / 60)
+        const m = diff % 60
+        suffix = ` (${h ? `${h}時間` : ''}${m ? `${m}分` : ''})`
+      }
+      return { value: o.value, label: o.label + suffix, disabled: diff <= 0 }
+    })
+  }, [TIME_OPTS, startTime])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -31,15 +76,24 @@ function EventForm({ event, onClose }) {
       setError('予定名を入力してください。')
       return
     }
-    const start = inputValueToDate(startAt)
-    if (!start) {
-      setError('開始日時を入力してください。')
+    if (!date) {
+      setError('日付を選択してください。')
       return
     }
-    const end = inputValueToDate(endAt)
-    if (end && end.getTime() < start.getTime()) {
-      setError('終了日時は開始日時より後にしてください。')
-      return
+
+    let start
+    let end
+    if (allDay) {
+      const base = combineDateTime(date, '00:00')
+      start = startOfDay(base)
+      end = endOfDay(base)
+    } else {
+      start = combineDateTime(date, startTime)
+      end = combineDateTime(date, endTime)
+      if (end.getTime() <= start.getTime()) {
+        setError('終了時刻は開始時刻より後にしてください。')
+        return
+      }
     }
 
     setSaving(true)
@@ -49,6 +103,7 @@ function EventForm({ event, onClose }) {
       type,
       startAt: start,
       endAt: end,
+      allDay,
       location: location.trim(),
       notes: notes.trim(),
       syncToGcal,
@@ -97,26 +152,57 @@ function EventForm({ event, onClose }) {
             </select>
           </label>
 
-          <div style={styles.row}>
-            <label style={{ ...styles.label, flex: 1 }}>
-              開始 <span style={styles.req}>*</span>
-              <input
-                type="datetime-local"
-                style={styles.input}
-                value={startAt}
-                onChange={(e) => setStartAt(e.target.value)}
-              />
-            </label>
-            <label style={{ ...styles.label, flex: 1 }}>
-              終了
-              <input
-                type="datetime-local"
-                style={styles.input}
-                value={endAt}
-                onChange={(e) => setEndAt(e.target.value)}
-              />
-            </label>
-          </div>
+          <label style={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={allDay}
+              onChange={(e) => setAllDay(e.target.checked)}
+            />
+            終日
+          </label>
+
+          <label style={styles.label}>
+            日付 <span style={styles.req}>*</span>
+            <input
+              type="date"
+              style={styles.input}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </label>
+
+          {!allDay && (
+            <div style={styles.row}>
+              <label style={{ ...styles.label, flex: 1 }}>
+                開始
+                <select
+                  style={styles.input}
+                  value={startTime}
+                  onChange={handleStartChange}
+                >
+                  {TIME_OPTS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ ...styles.label, flex: 1 }}>
+                終了
+                <select
+                  style={styles.input}
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                >
+                  {endOptions.map((o) => (
+                    <option key={o.value} value={o.value} disabled={o.disabled}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           <label style={styles.label}>
             場所

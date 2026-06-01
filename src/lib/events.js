@@ -46,13 +46,14 @@ function toTimestamp(date) {
   return date ? Timestamp.fromDate(date) : null
 }
 
-// 新規作成。input: { title, type, startAt(Date), endAt(Date|null), location, notes, syncToGcal }
+// 新規作成。input: { title, type, startAt(Date), endAt(Date|null), allDay, location, notes, syncToGcal }
 export function createEvent(uid, input) {
   return addDoc(eventsCol(uid), {
     title: input.title,
     type: input.type ?? 'work',
     startAt: toTimestamp(input.startAt),
     endAt: toTimestamp(input.endAt),
+    allDay: input.allDay ?? false,
     location: input.location ?? '',
     notes: input.notes ?? '',
     syncToGcal: input.syncToGcal ?? false, // フェーズ2用

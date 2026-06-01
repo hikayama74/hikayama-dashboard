@@ -27,7 +27,9 @@ function EventItem({ event, onEdit }) {
       <span style={{ ...styles.bar, background: meta.color }} />
       <div style={styles.body}>
         <div style={styles.topRow}>
-          <span style={styles.time}>{formatTimeRange(start, end)}</span>
+          <span style={styles.time}>
+            {event.allDay ? '終日' : formatTimeRange(start, end)}
+          </span>
           <span style={{ ...styles.typeBadge, color: meta.color }}>
             {meta.label}
           </span>

@@ -7,17 +7,36 @@ import {
   endOfDay,
   startOfWeek,
   endOfWeek,
+  startOfMonth,
+  endOfMonth,
   formatDateHeader,
   dateKey,
 } from '../../lib/datetime'
 import EventItem from './EventItem'
 import EventForm from './EventForm'
 
-// 表示範囲（今日 / 今週）
+// 表示範囲（今日 / 今週 / 今月 / すべて）
 const RANGES = [
   { value: 'today', label: '今日' },
   { value: 'week', label: '今週' },
+  { value: 'month', label: '今月' },
+  { value: 'all', label: 'すべて' },
 ]
+
+// 範囲に応じた [from, to]。'all' は null（範囲フィルタなし）。
+function rangeBounds(range, now) {
+  switch (range) {
+    case 'today':
+      return [startOfDay(now), endOfDay(now)]
+    case 'week':
+      return [startOfWeek(now), endOfWeek(now)]
+    case 'month':
+      return [startOfMonth(now), endOfMonth(now)]
+    case 'all':
+    default:
+      return null
+  }
+}
 
 // カレンダービュー（中央ペイン）。仕事・シフト・プライベートを統合表示。
 function EventPanel() {
@@ -30,13 +49,12 @@ function EventPanel() {
   // 範囲内 & 種別フィルタを適用し、日付ごとにグルーピング
   const groups = useMemo(() => {
     const now = new Date()
-    const from = range === 'today' ? startOfDay(now) : startOfWeek(now)
-    const to = range === 'today' ? endOfDay(now) : endOfWeek(now)
+    const bounds = rangeBounds(range, now)
 
     const inRange = events.filter((ev) => {
       const start = tsToDate(ev.startAt)
       if (!start) return false
-      if (start < from || start > to) return false
+      if (bounds && (start < bounds[0] || start > bounds[1])) return false
       if (typeFilter !== 'all' && ev.type !== typeFilter) return false
       return true
     })
@@ -112,7 +130,9 @@ function EventPanel() {
       {error && <p style={styles.error}>読み込みに失敗しました。</p>}
       {isEmpty && (
         <p style={styles.muted}>
-          {range === 'today' ? '今日' : '今週'}の予定はありません。
+          {range === 'all'
+            ? '予定はまだありません。'
+            : `${RANGES.find((r) => r.value === range)?.label ?? ''}の予定はありません。`}
         </p>
       )}
 
@@ -155,10 +175,11 @@ const styles = {
     justifyContent: 'space-between',
     gap: '0.5rem',
     marginBottom: '0.75rem',
+    flexWrap: 'wrap',
   },
-  rangeTabs: { display: 'flex', gap: '0.25rem' },
+  rangeTabs: { display: 'flex', gap: '0.25rem', flexWrap: 'wrap' },
   rangeTab: {
-    padding: '0.35rem 0.85rem',
+    padding: '0.35rem 0.7rem',
     fontSize: '0.85rem',
     background: '#fff',
     border: '1px solid #cbd5e1',

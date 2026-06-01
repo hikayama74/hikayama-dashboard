@@ -73,6 +73,57 @@ export function endOfWeek(date) {
   return endOfDay(e)
 }
 
+export function startOfMonth(date) {
+  const d = startOfDay(date)
+  d.setDate(1)
+  return d
+}
+
+export function endOfMonth(date) {
+  const d = startOfDay(date)
+  d.setMonth(d.getMonth() + 1, 1) // 翌月1日
+  d.setDate(0) // 当月末日
+  return endOfDay(d)
+}
+
+// 日付(YYYY-MM-DD) と 時刻(HH:mm) を結合して Date を作る
+export function combineDateTime(dateStr, timeStr) {
+  if (!dateStr) return null
+  const d = new Date(`${dateStr}T${timeStr || '00:00'}`)
+  return isNaN(d.getTime()) ? null : d
+}
+
+// Date → 日付部分のみ "YYYY-MM-DD"
+export function dateToDateInput(date) {
+  if (!date) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+// 時刻ドロップダウン用の選択肢を生成（既定15分刻み）。
+// 返り値: [{ value: "09:30", label: "9:30" }, ...]
+export function timeOptions(stepMinutes = 15) {
+  const opts = []
+  for (let m = 0; m < 24 * 60; m += stepMinutes) {
+    const h = Math.floor(m / 60)
+    const min = m % 60
+    const value = `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+    opts.push({ value, label: `${h}:${String(min).padStart(2, '0')}` })
+  }
+  return opts
+}
+
+// "HH:mm" に分を加算して "HH:mm" を返す（24h を超えたら 23:45 に丸める）
+export function addMinutesToTime(timeStr, minutes) {
+  const [h, m] = timeStr.split(':').map(Number)
+  let total = h * 60 + m + minutes
+  if (total >= 24 * 60) total = 23 * 60 + 45
+  if (total < 0) total = 0
+  const nh = Math.floor(total / 60)
+  const nm = total % 60
+  return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`
+}
+
 // 時刻のみ（例: "15:00"）
 export function formatTime(date) {
   if (!date) return ''
