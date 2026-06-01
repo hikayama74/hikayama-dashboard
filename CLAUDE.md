@@ -179,8 +179,9 @@
 ## 7. 開発ルール
 
 - コミットメッセージは日本語OK
-- `.env`ファイルには`VITE_`プレフィックスをつけてFirebase設定・Anthropic APIキーを管理
-- Anthropic APIキーはフロントエンドに直接書かない（将来的にCloud Functionsに移す）
+- `.env`ファイルには`VITE_`プレフィックスをつけてFirebase設定・Gemini APIキーを管理
+- AI連携はGemini API（`@google/generative-ai`、`gemini-2.5-flash`、`VITE_GEMINI_API_KEY`）を使用。無料枠目的で採用
+- 当面APIキーはフロントに置く運用（公開サイトに露出するリスクあり）。将来的にCloud Functionsに移す（フェーズ2）
 - デプロイ前に必ず`npm run build`でエラーがないか確認
 - 既存データを壊す変更は必ずヒカヤマさんに確認してから実施
 
@@ -188,23 +189,27 @@
 
 ## 8. 開発フェーズ
 
-### フェーズ1（現在）
-- [ ] Firebaseプロジェクト新規作成
-- [ ] 認証（Googleログイン）
-- [ ] タスク管理CRUD
-- [ ] 予定管理CRUD
-- [ ] メモ管理CRUD
-- [ ] 雑入力モーダル（テキスト）
-- [ ] 雑入力モーダル（画像・Vision）
-- [ ] 「Claudeに聞く」パネル
-- [ ] GitHub Pagesへのデプロイ
+### フェーズ1（完了）
+- [x] Firebaseプロジェクト新規作成
+- [x] 認証（Googleログイン）
+- [x] タスク管理CRUD
+- [x] 予定管理CRUD（複数日・日跨ぎ対応含む）
+- [x] メモ管理CRUD
+- [x] 雑入力モーダル（テキスト）※AI連携はGeminiで実装
+- [x] 雑入力モーダル（画像・Vision）＋解析結果のAI修正ループ
+- [x] 「AIに聞く」パネル（CLAUDE.md当初の「Claudeに聞く」をGeminiで実装）
+- [x] GitHub Pagesへのデプロイ
 
 ### フェーズ2
+- [ ] **Gemini APIをCloud Functions経由に移行**（APIキーをサーバ側で安全管理し、公開サイトでの露出を解消）
 - [ ] Googleカレンダー連携（選択式同期）
 - [ ] Firebase Hostingへ移行
 - [ ] スマホUI最適化
 - [ ] バーチャル社員（自律的な進捗通知エージェント）
 
 ### フェーズ3
+- [ ] **FirestoreへのアクセスMCPサーバーの構築**（ダッシュボードのデータをMCP経由で参照・操作可能にする）
+- [ ] **Claude.aiのチャットから直接ダッシュボードのデータを参照・操作できるようにする**（上記MCPサーバー経由）
+- [ ] **司令塔チャットでの管理をClaude.aiに統合**（最終目標：Claude.aiのチャットを起点に、タスク・予定・メモを横断管理）
 - [ ] チームメンバーへの展開
 - [ ] 権限管理（閲覧のみ・編集可など）

@@ -94,12 +94,19 @@ function QuickInputModal({ onClose }) {
     }
   }
 
-  // 解析/再解析の結果を選別用 state に反映（全件チェック済みにする）
-  const applyResult = (result) => {
+  // 解析/再解析の結果を選別用 state に反映。
+  // prev を渡すと、種別ごとに同じ位置の項目のチェック状態を引き継ぐ
+  // （再解析で項目が増えた分は既定でチェック）。prev なしは全件チェック。
+  const applyResult = (result, prev) => {
+    const merge = (arr, prevArr) =>
+      arr.map((it, i) => ({
+        ...it,
+        _checked: prevArr ? (prevArr[i]?._checked ?? true) : true,
+      }))
     setItems({
-      tasks: result.tasks.map((t) => ({ ...t, _checked: true })),
-      events: result.events.map((e) => ({ ...e, _checked: true })),
-      memos: result.memos.map((m) => ({ ...m, _checked: true })),
+      tasks: merge(result.tasks, prev?.tasks),
+      events: merge(result.events, prev?.events),
+      memos: merge(result.memos, prev?.memos),
     })
   }
 
@@ -120,13 +127,14 @@ function QuickInputModal({ onClose }) {
     setError(null)
     try {
       const { refineQuickInput } = await import('../../lib/gemini')
+      const prev = items // 現在のチェック状態を引き継ぐ
       const result = await refineQuickInput(
         text.trim(),
         images.map((img) => ({ mimeType: img.mimeType, data: img.data })),
         stripChecked(),
         feedback.trim(),
       )
-      applyResult(result)
+      applyResult(result, prev)
       setFeedback('')
     } catch (e) {
       console.error('[QuickInput] 再解析失敗', e)
