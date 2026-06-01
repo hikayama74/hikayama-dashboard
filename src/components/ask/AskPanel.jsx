@@ -27,11 +27,8 @@ function AskPanel({ open, onClose }) {
       setAnswer(res)
     } catch (e) {
       console.error('[AskPanel] 応答失敗', e)
-      setError(
-        e?.message?.includes('VITE_GEMINI_API_KEY')
-          ? 'Gemini APIキーが未設定です（.env を確認してください）。'
-          : '応答の取得に失敗しました。時間をおいて再度お試しください。',
-      )
+      const { describeError } = await import('../../lib/gemini')
+      setError('応答の取得に失敗。' + describeError(e))
     } finally {
       setLoading(false)
     }

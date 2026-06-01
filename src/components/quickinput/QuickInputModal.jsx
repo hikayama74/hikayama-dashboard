@@ -84,11 +84,8 @@ function QuickInputModal({ onClose }) {
       setPhase('review')
     } catch (e) {
       console.error('[QuickInput] 解析失敗', e)
-      setError(
-        e?.message?.includes('VITE_GEMINI_API_KEY')
-          ? 'Gemini APIキーが未設定です（.env を確認してください）。'
-          : '解析に失敗しました。時間をおいて再度お試しください。',
-      )
+      const { describeError } = await import('../../lib/gemini')
+      setError('解析に失敗。' + describeError(e))
     } finally {
       setParsing(false)
     }
@@ -138,11 +135,8 @@ function QuickInputModal({ onClose }) {
       setFeedback('')
     } catch (e) {
       console.error('[QuickInput] 再解析失敗', e)
-      setError(
-        e?.message?.includes('VITE_GEMINI_API_KEY')
-          ? 'Gemini APIキーが未設定です（.env を確認してください）。'
-          : '再解析に失敗しました。時間をおいて再度お試しください。',
-      )
+      const { describeError } = await import('../../lib/gemini')
+      setError('再解析に失敗。' + describeError(e))
     } finally {
       setRefining(false)
     }
