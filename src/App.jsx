@@ -6,14 +6,19 @@ import TaskPanel from './components/tasks/TaskPanel'
 import EventPanel from './components/events/EventPanel'
 import MemoPanel from './components/memos/MemoPanel'
 import QuickInputModal from './components/quickinput/QuickInputModal'
+import AskPanel from './components/ask/AskPanel'
 
 // 認証後のメイン画面。CLAUDE.md §4 の3ペイン構成。
 function Dashboard() {
   const [quickOpen, setQuickOpen] = useState(false)
+  const [askOpen, setAskOpen] = useState(false)
 
   return (
     <div>
-      <Header onQuickInput={() => setQuickOpen(true)} />
+      <Header
+        onQuickInput={() => setQuickOpen(true)}
+        onAsk={() => setAskOpen((v) => !v)}
+      />
       <main style={styles.main}>
         <div style={styles.grid}>
           <div style={styles.pane}>
@@ -28,6 +33,7 @@ function Dashboard() {
         </div>
       </main>
       {quickOpen && <QuickInputModal onClose={() => setQuickOpen(false)} />}
+      <AskPanel open={askOpen} onClose={() => setAskOpen(false)} />
     </div>
   )
 }

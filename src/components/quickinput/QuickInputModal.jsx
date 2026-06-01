@@ -32,8 +32,8 @@ function QuickInputModal({ onClose }) {
     setParsing(true)
     setError(null)
     try {
-      // Anthropic SDK は重いので、解析時に動的importして初期バンドルから切り離す
-      const { parseQuickInput } = await import('../../lib/anthropic')
+      // SDK は重いので、解析時に動的importして初期バンドルから切り離す
+      const { parseQuickInput } = await import('../../lib/gemini')
       const result = await parseQuickInput(text.trim())
       setItems({
         tasks: result.tasks.map((t) => ({ ...t, _checked: true })),
@@ -44,8 +44,8 @@ function QuickInputModal({ onClose }) {
     } catch (e) {
       console.error('[QuickInput] 解析失敗', e)
       setError(
-        e?.message?.includes('VITE_ANTHROPIC_API_KEY')
-          ? 'Anthropic APIキーが未設定です（.env を確認してください）。'
+        e?.message?.includes('VITE_GEMINI_API_KEY')
+          ? 'Gemini APIキーが未設定です（.env を確認してください）。'
           : '解析に失敗しました。時間をおいて再度お試しください。',
       )
     } finally {

@@ -35,10 +35,10 @@
 | `VITE_FIREBASE_STORAGE_BUCKET` | `xxx.appspot.com` |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | 数字の ID |
 | `VITE_FIREBASE_APP_ID` | `1:...:web:...` |
-| `VITE_ANTHROPIC_API_KEY` | Anthropic APIキー（雑入力で使用） |
+| `VITE_GEMINI_API_KEY` | Gemini APIキー（雑入力 / AIに聞く で使用） |
 
 > 名前は **完全一致**させること（ワークフローがこの名前で参照します）。
-> ⚠️ `VITE_ANTHROPIC_API_KEY` はビルド成果物（公開サイト）に埋め込まれ第三者に露出します（当面の運用方針）。
+> ⚠️ `VITE_GEMINI_API_KEY` はビルド成果物（公開サイト）に埋め込まれ第三者に露出します（当面の運用方針）。
 > 値の前後に余分なスペースや引用符を入れないこと。
 
 ### CLI でまとめて登録する場合（任意）

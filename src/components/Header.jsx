@@ -1,8 +1,7 @@
 import { useAuth } from '../lib/AuthContext'
 
-// アプリ共通ヘッダー。雑入力ボタン＋ユーザー情報。
-// 「Claudeに聞く」ボタンは後続フェーズで実装。
-function Header({ onQuickInput }) {
+// アプリ共通ヘッダー。雑入力 / AIに聞く ボタン＋ユーザー情報。
+function Header({ onQuickInput, onAsk }) {
   const { user, signOut } = useAuth()
 
   return (
@@ -13,6 +12,9 @@ function Header({ onQuickInput }) {
           <>
             <button style={styles.quickInput} onClick={onQuickInput}>
               ✏️ 雑に入力
+            </button>
+            <button style={styles.ask} onClick={onAsk}>
+              🤖 AIに聞く
             </button>
             {user.photoURL && (
               <img src={user.photoURL} alt="" style={styles.avatar} />
@@ -48,6 +50,15 @@ const styles = {
     color: '#fff',
     background: '#2563eb',
     border: 'none',
+    borderRadius: '8px',
+  },
+  ask: {
+    padding: '0.4rem 0.9rem',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    color: '#2563eb',
+    background: '#eef2ff',
+    border: '1px solid #c7d2fe',
     borderRadius: '8px',
   },
   avatar: { width: 28, height: 28, borderRadius: '50%' },
