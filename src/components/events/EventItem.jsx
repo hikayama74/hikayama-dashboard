@@ -5,6 +5,7 @@ import {
   tsToDate,
   formatTimeRange,
   formatDateShort,
+  formatDateTime,
   dateKey,
 } from '../../lib/datetime'
 
@@ -24,6 +25,9 @@ function EventItem({ event, onEdit }) {
     timeText = multiDay
       ? `終日 · ${formatDateShort(start)}–${formatDateShort(end)}`
       : '終日'
+  } else if (multiDay) {
+    // 時刻あり日跨ぎ：両端に日付を併記（例: 5/1 22:00 – 5/2 4:00）
+    timeText = `${formatDateTime(start)} – ${formatDateTime(end)}`
   } else {
     timeText = formatTimeRange(start, end)
   }

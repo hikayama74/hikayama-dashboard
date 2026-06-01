@@ -58,15 +58,22 @@ function EventForm({ event, onClose }) {
     if (endDate < v) setEndDate(v)
   }
 
-  // 開始時刻を変えたら、終了を「開始＋1時間」に追従させる（Google 風）
+  // 同日内か（終了日 == 開始日）。別日なら終了時刻は自由に選べる。
+  const sameDay = (endDate || startDate) === startDate
+
+  // 開始時刻を変えたら、同日内のときだけ終了を「開始＋1時間」に追従（Google 風）
   const handleStartTimeChange = (e) => {
     const v = e.target.value
     setStartTime(v)
-    setEndTime(addMinutesToTime(v, 60))
+    if (sameDay) setEndTime(addMinutesToTime(v, 60))
   }
 
-  // 終了時刻の選択肢に「開始からの所要時間」を併記
+  // 終了時刻の選択肢。同日内のみ「所要時間」を併記し開始以前を無効化。
   const endOptions = useMemo(() => {
+    if (!sameDay) {
+      // 別日の終了は全時刻を許可（日跨ぎ）
+      return TIME_OPTS.map((o) => ({ value: o.value, label: o.label, disabled: false }))
+    }
     const [sh, sm] = startTime.split(':').map(Number)
     const startMin = sh * 60 + sm
     return TIME_OPTS.map((o) => {
@@ -80,7 +87,7 @@ function EventForm({ event, onClose }) {
       }
       return { value: o.value, label: o.label + suffix, disabled: diff <= 0 }
     })
-  }, [TIME_OPTS, startTime])
+  }, [TIME_OPTS, startTime, sameDay])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -106,10 +113,11 @@ function EventForm({ event, onClose }) {
       start = startOfDay(sd)
       end = endOfDay(ed)
     } else {
+      // 時刻あり：開始日時 〜 終了日時（日跨ぎ可）
       start = combineDateTime(startDate, startTime)
-      end = combineDateTime(startDate, endTime)
+      end = combineDateTime(endDate || startDate, endTime)
       if (end.getTime() <= start.getTime()) {
-        setError('終了時刻は開始時刻より後にしてください。')
+        setError('終了日時は開始日時より後にしてください。')
         return
       }
     }
@@ -203,18 +211,18 @@ function EventForm({ event, onClose }) {
             </div>
           ) : (
             <>
-              <label style={styles.label}>
-                日付 <span style={styles.req}>*</span>
-                <input
-                  type="date"
-                  style={styles.input}
-                  value={startDate}
-                  onChange={handleStartDateChange}
-                />
-              </label>
               <div style={styles.row}>
+                <label style={{ ...styles.label, flex: 1.4 }}>
+                  開始日 <span style={styles.req}>*</span>
+                  <input
+                    type="date"
+                    style={styles.input}
+                    value={startDate}
+                    onChange={handleStartDateChange}
+                  />
+                </label>
                 <label style={{ ...styles.label, flex: 1 }}>
-                  開始
+                  開始時刻
                   <select
                     style={styles.input}
                     value={startTime}
@@ -227,8 +235,20 @@ function EventForm({ event, onClose }) {
                     ))}
                   </select>
                 </label>
+              </div>
+              <div style={styles.row}>
+                <label style={{ ...styles.label, flex: 1.4 }}>
+                  終了日
+                  <input
+                    type="date"
+                    style={styles.input}
+                    value={endDate}
+                    min={startDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </label>
                 <label style={{ ...styles.label, flex: 1 }}>
-                  終了
+                  終了時刻
                   <select
                     style={styles.input}
                     value={endTime}
