@@ -1,20 +1,46 @@
 import { AuthProvider } from './lib/AuthContext'
 import RequireAuth from './components/RequireAuth'
 import Header from './components/Header'
+import TaskPanel from './components/tasks/TaskPanel'
 
-// 認証後のメイン画面。3ペイン構成は後続ステップで実装する。
+// 認証後のメイン画面。CLAUDE.md §4 の3ペイン構成を見据えたグリッド。
+// 現状はタスクペインのみ。予定・メモは後続ステップで追加。
 function Dashboard() {
   return (
     <div>
       <Header />
-      <main style={{ padding: '1.5rem' }}>
-        <h2 style={{ marginTop: 0 }}>ダッシュボード</h2>
-        <p style={{ color: '#647186' }}>
-          タスク・予定・メモの管理機能はこれから実装します（フェーズ1）。
-        </p>
+      <main style={styles.main}>
+        <div style={styles.grid}>
+          <div style={styles.pane}>
+            <TaskPanel />
+          </div>
+          <div style={styles.pane}>
+            <p style={styles.placeholder}>カレンダービュー（予定）— 実装予定</p>
+          </div>
+          <div style={styles.pane}>
+            <p style={styles.placeholder}>メモ・状況報告 — 実装予定</p>
+          </div>
+        </div>
       </main>
     </div>
   )
+}
+
+const styles = {
+  main: { padding: '1.25rem', maxWidth: '1400px', margin: '0 auto' },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '1rem',
+    alignItems: 'start',
+  },
+  pane: {
+    background: '#f8fafc',
+    border: '1px solid #e5e9f0',
+    borderRadius: '12px',
+    padding: '1rem',
+  },
+  placeholder: { color: '#94a3b8', fontSize: '0.9rem', margin: 0 },
 }
 
 function App() {
